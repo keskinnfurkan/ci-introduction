@@ -16,7 +16,7 @@ CONFIGURATION_DEBUG   = "Debug"
 CONFIGURATION_RELEASE = "Release"
 BUILD_OUTPUT_DIR      = "./build"
 TEST_OUTPUT_DIR       = "./fastlane/test_output"
-DERIVED_DATA_PATH     = "./fastlane/derived_data"
+DERIVED_DATA_PATH     = "ci_derived_data"
 
 # Explicit simulator destination — prevents fallback to My Mac
 SIMULATOR_DESTINATION = "platform=iOS Simulator,name=#{DEVICE},OS=latest"
@@ -63,20 +63,21 @@ platform :ios do
   lane :unit_tests do
     resolve_dependencies
 
-    scan(
-      project:            PROJECT,
-      scheme:             SCHEME,
-      destination:        SIMULATOR_DESTINATION,
-      configuration:      CONFIGURATION_DEBUG,
-      only_testing:       UNIT_TEST_TARGET,
-      derived_data_path:  DERIVED_DATA_PATH,
-      clean:              true,
-      code_coverage:      true,
-      result_bundle:      true,
-      output_directory:   TEST_OUTPUT_DIR,
-      output_files:       "unit_tests_report.html,unit_tests_report.junit",
-      xcargs:             "CODE_SIGNING_ALLOWED=NO",
-      fail_build:         true
+    # Clean derived data before testing to prevent build conflicts
+    FileUtils.rm_rf("../#{DERIVED_DATA_PATH}")
+    FileUtils.mkdir_p("../#{TEST_OUTPUT_DIR}")
+
+    sh(
+      "set -o pipefail && xcodebuild test " \
+      "-project ../#{PROJECT} " \
+      "-scheme #{SCHEME} " \
+      "-destination '#{SIMULATOR_DESTINATION}' " \
+      "-only-testing:#{UNIT_TEST_TARGET} " \
+      "-derivedDataPath ../#{DERIVED_DATA_PATH} " \
+      "-resultBundlePath ../#{TEST_OUTPUT_DIR}/unit_tests.xcresult " \
+      "-configuration #{CONFIGURATION_DEBUG} " \
+      "CODE_SIGNING_ALLOWED=NO " \
+      "| xcpretty --report junit --output ../#{TEST_OUTPUT_DIR}/unit_tests_report.junit"
     )
 
     UI.success("Unit tests passed.")
@@ -87,20 +88,21 @@ platform :ios do
   lane :ui_tests do
     resolve_dependencies
 
-    scan(
-      project:            PROJECT,
-      scheme:             SCHEME,
-      destination:        SIMULATOR_DESTINATION,
-      configuration:      CONFIGURATION_DEBUG,
-      only_testing:       UI_TEST_TARGET,
-      derived_data_path:  DERIVED_DATA_PATH,
-      clean:              true,
-      code_coverage:      false,
-      result_bundle:      true,
-      output_directory:   TEST_OUTPUT_DIR,
-      output_files:       "ui_tests_report.html,ui_tests_report.junit",
-      xcargs:             "CODE_SIGNING_ALLOWED=NO",
-      fail_build:         true
+    # Clean derived data before testing to prevent build conflicts
+    FileUtils.rm_rf("../#{DERIVED_DATA_PATH}")
+    FileUtils.mkdir_p("../#{TEST_OUTPUT_DIR}")
+
+    sh(
+      "set -o pipefail && xcodebuild test " \
+      "-project ../#{PROJECT} " \
+      "-scheme #{SCHEME} " \
+      "-destination '#{SIMULATOR_DESTINATION}' " \
+      "-only-testing:#{UI_TEST_TARGET} " \
+      "-derivedDataPath ../#{DERIVED_DATA_PATH} " \
+      "-resultBundlePath ../#{TEST_OUTPUT_DIR}/ui_tests.xcresult " \
+      "-configuration #{CONFIGURATION_DEBUG} " \
+      "CODE_SIGNING_ALLOWED=NO " \
+      "| xcpretty --report junit --output ../#{TEST_OUTPUT_DIR}/ui_tests_report.junit"
     )
 
     UI.success("UI tests passed.")
