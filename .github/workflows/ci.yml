@@ -9,7 +9,6 @@ on:
 permissions:
   contents: read
 
-# Cancel any in-progress run on the same branch when a new push arrives.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -31,7 +30,6 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          # Reads the version from .ruby-version file automatically.
           bundler-cache: true
 
       - name: Cache SPM packages
