@@ -7,16 +7,18 @@ default_platform(:ios)
 # ─────────────────────────────────────────
 # Project Constants
 # ─────────────────────────────────────────
-PROJECT             = "ci-introduction.xcodeproj"
-SCHEME              = "ci-introduction"
-UNIT_TEST_TARGET    = "ci-introductionTests"
-UI_TEST_TARGET      = "ci-introductionUITests"
-DEVICE              = "iPhone 16"
+PROJECT               = "ci-introduction.xcodeproj"
+SCHEME                = "ci-introduction"
+UNIT_TEST_TARGET      = "ci-introductionTests"
+UI_TEST_TARGET        = "ci-introductionUITests"
+DEVICE                = "iPhone 16"
 CONFIGURATION_DEBUG   = "Debug"
 CONFIGURATION_RELEASE = "Release"
-BUILD_OUTPUT_DIR    = "./build"
-TEST_OUTPUT_DIR     = "./fastlane/test_output"
+BUILD_OUTPUT_DIR      = "./build"
+TEST_OUTPUT_DIR       = "./fastlane/test_output"
+DERIVED_DATA_PATH     = "./fastlane/derived_data"
 
+# Explicit simulator destination — prevents fallback to My Mac
 SIMULATOR_DESTINATION = "platform=iOS Simulator,name=#{DEVICE},OS=latest"
 
 platform :ios do
@@ -39,18 +41,18 @@ platform :ios do
   # ║                   CI LANES                    ║
   # ╚══════════════════════════════════════════════╝
 
-  # ─────────────────────────────────────────
   desc "Build the project for simulator (Debug, no code signing)"
   lane :build do
     resolve_dependencies
 
     xcodebuild(
-      project:       PROJECT,
-      scheme:        SCHEME,
-      destination:   SIMULATOR_DESTINATION,
-      configuration: CONFIGURATION_DEBUG,
-      build:         true,
-      xcargs:        "CODE_SIGNING_ALLOWED=NO"
+      project:          PROJECT,
+      scheme:           SCHEME,
+      destination:      SIMULATOR_DESTINATION,
+      configuration:    CONFIGURATION_DEBUG,
+      build:            true,
+      derivedDataPath:  DERIVED_DATA_PATH,
+      xcargs:           "CODE_SIGNING_ALLOWED=NO"
     )
 
     UI.success("Build completed successfully.")
@@ -62,17 +64,19 @@ platform :ios do
     resolve_dependencies
 
     scan(
-      project:          PROJECT,
-      scheme:           SCHEME,
-      destination:      SIMULATOR_DESTINATION,
-      configuration:    CONFIGURATION_DEBUG,
-      only_testing:     UI_TEST_TARGET,
-      code_coverage:    true,
-      result_bundle:    true,
-      output_directory: TEST_OUTPUT_DIR,
-      output_files:     "unit_tests_report.html,unit_tests_report.junit",
-      xcargs:           "CODE_SIGNING_ALLOWED=NO",
-      fail_build:       true
+      project:            PROJECT,
+      scheme:             SCHEME,
+      destination:        SIMULATOR_DESTINATION,
+      configuration:      CONFIGURATION_DEBUG,
+      only_testing:       UNIT_TEST_TARGET,
+      derived_data_path:  DERIVED_DATA_PATH,
+      clean:              true,
+      code_coverage:      true,
+      result_bundle:      true,
+      output_directory:   TEST_OUTPUT_DIR,
+      output_files:       "unit_tests_report.html,unit_tests_report.junit",
+      xcargs:             "CODE_SIGNING_ALLOWED=NO",
+      fail_build:         true
     )
 
     UI.success("Unit tests passed.")
@@ -84,24 +88,26 @@ platform :ios do
     resolve_dependencies
 
     scan(
-      project:          PROJECT,
-      scheme:           SCHEME,
-      destination:      SIMULATOR_DESTINATION,
-      configuration:    CONFIGURATION_DEBUG,
-      only_testing:     ["ci-introductionUITests"],
-      code_coverage:    false,
-      result_bundle:    true,
-      output_directory: TEST_OUTPUT_DIR,
-      output_files:     "ui_tests_report.html,ui_tests_report.junit",
-      xcargs:           "CODE_SIGNING_ALLOWED=NO",
-      fail_build:       true
+      project:            PROJECT,
+      scheme:             SCHEME,
+      destination:        SIMULATOR_DESTINATION,
+      configuration:      CONFIGURATION_DEBUG,
+      only_testing:       UI_TEST_TARGET,
+      derived_data_path:  DERIVED_DATA_PATH,
+      clean:              true,
+      code_coverage:      false,
+      result_bundle:      true,
+      output_directory:   TEST_OUTPUT_DIR,
+      output_files:       "ui_tests_report.html,ui_tests_report.junit",
+      xcargs:             "CODE_SIGNING_ALLOWED=NO",
+      fail_build:         true
     )
 
     UI.success("UI tests passed.")
   end
 
   # ─────────────────────────────────────────
-  desc "Run all tests — unit and UI (ci-introductionTests + ci-introductionUITests)"
+  desc "Run all tests — unit and UI"
   lane :tests do
     unit_tests
     ui_tests
@@ -122,18 +128,6 @@ platform :ios do
 
   desc "Archive and upload to TestFlight (requires App Store Connect API Key)"
   lane :release do
-    # ⏸  This lane is intentionally disabled until the API key is available.
-    #
-    # Required GitHub Secrets:
-    #   APP_STORE_CONNECT_API_KEY_ID       → Key ID from App Store Connect
-    #   APP_STORE_CONNECT_API_ISSUER_ID    → Issuer ID from App Store Connect
-    #   APP_STORE_CONNECT_API_KEY_CONTENT  → Base64-encoded .p8 private key
-    #   MATCH_PASSWORD                     → Passphrase for the match certificate repo
-    #   MATCH_GIT_BASIC_AUTHORIZATION      → Base64-encoded "user:token" for match repo access
-    #
-    # To encode your .p8 key for GitHub Secrets:
-    #   base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
-
     UI.user_error!(
       "CD lane is on hold — App Store Connect API Key is not yet configured. " \
       "Uncomment and configure this lane once the key is available."
@@ -153,9 +147,9 @@ platform :ios do
     # Step 2: Sync certificates and provisioning profiles (match)
     # ----------------------------------------------------------
     # match(
-    #   type:      "appstore",
-    #   api_key:   api_key,
-    #   readonly:  true
+    #   type:     "appstore",
+    #   api_key:  api_key,
+    #   readonly: true
     # )
 
     # ----------------------------------------------------------
@@ -180,10 +174,10 @@ platform :ios do
     # Step 5: Upload to TestFlight
     # ----------------------------------------------------------
     # pilot(
-    #   api_key:                         api_key,
-    #   ipa:                             "#{BUILD_OUTPUT_DIR}/ci-introduction.ipa",
+    #   api_key:                           api_key,
+    #   ipa:                               "#{BUILD_OUTPUT_DIR}/ci-introduction.ipa",
     #   skip_waiting_for_build_processing: true,
-    #   changelog:                       "Automated release via GitHub Actions"
+    #   changelog:                         "Automated release via GitHub Actions"
     # )
   end
 
