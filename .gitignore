@@ -1,6 +1,7 @@
 # ─────────────────────────────────────────
 # Xcode
 # ─────────────────────────────────────────
+ci-introduction/ci-introduction.xcodeproj/
 DerivedData/
 build/
 *.pbxuser
