@@ -1,0 +1,197 @@
+# Fastfile
+# Defines all CI/CD lanes for the ci-introduction iOS project.
+# Lanes are grouped into: Dependencies, CI (Build & Test), and CD (Distribution).
+
+default_platform(:ios)
+
+# ─────────────────────────────────────────
+# Project Constants
+# ─────────────────────────────────────────
+PROJECT             = "ci-introduction.xcodeproj"
+SCHEME              = "ci-introduction"
+UNIT_TEST_TARGET    = "ci-introductionTests"
+UI_TEST_TARGET      = "ci-introductionUITests"
+DEVICE              = "iPhone 16"
+CONFIGURATION_DEBUG   = "Debug"
+CONFIGURATION_RELEASE = "Release"
+BUILD_OUTPUT_DIR    = "./build"
+TEST_OUTPUT_DIR     = "./fastlane/test_output"
+
+platform :ios do
+
+  # ╔══════════════════════════════════════════════╗
+  # ║              DEPENDENCY MANAGEMENT            ║
+  # ╚══════════════════════════════════════════════╝
+
+  desc "Resolve Swift Package Manager dependencies"
+  lane :resolve_dependencies do
+    sh(
+      "xcodebuild -resolvePackageDependencies " \
+      "-project ../#{PROJECT} " \
+      "-scheme #{SCHEME}"
+    )
+    UI.success("SPM dependencies resolved successfully.")
+  end
+
+  # ╔══════════════════════════════════════════════╗
+  # ║                   CI LANES                    ║
+  # ╚══════════════════════════════════════════════╝
+
+  # ─────────────────────────────────────────
+  desc "Build the project for simulator (Debug, no code signing)"
+  lane :build do
+    resolve_dependencies
+
+    xcodebuild(
+      project:       PROJECT,
+      scheme:        SCHEME,
+      destination:   "platform=iOS Simulator,name=#{DEVICE},OS=latest",
+      configuration: CONFIGURATION_DEBUG,
+      build:         true,
+      xcargs:        "CODE_SIGNING_ALLOWED=NO"
+    )
+
+    UI.success("Build completed successfully.")
+  end
+
+  # ─────────────────────────────────────────
+  desc "Run unit tests (ci-introductionTests)"
+  lane :unit_tests do
+    resolve_dependencies
+
+    scan(
+      project:           PROJECT,
+      scheme:            SCHEME,
+      device:            DEVICE,
+      configuration:     CONFIGURATION_DEBUG,
+      only_testing:      UNIT_TEST_TARGET,
+      code_coverage:     true,
+      result_bundle:     true,
+      output_directory:  TEST_OUTPUT_DIR,
+      output_files:      "unit_tests_report.html,unit_tests_report.junit",
+      xcargs:            "CODE_SIGNING_ALLOWED=NO"
+    )
+
+    UI.success("Unit tests passed.")
+  end
+
+  # ─────────────────────────────────────────
+  desc "Run UI tests (ci-introductionUITests)"
+  lane :ui_tests do
+    resolve_dependencies
+
+    scan(
+      project:           PROJECT,
+      scheme:            SCHEME,
+      device:            DEVICE,
+      configuration:     CONFIGURATION_DEBUG,
+      only_testing:      UI_TEST_TARGET,
+      code_coverage:     false,
+      result_bundle:     true,
+      output_directory:  TEST_OUTPUT_DIR,
+      output_files:      "ui_tests_report.html,ui_tests_report.junit",
+      xcargs:            "CODE_SIGNING_ALLOWED=NO"
+    )
+
+    UI.success("UI tests passed.")
+  end
+
+  # ─────────────────────────────────────────
+  desc "Run all tests — unit and UI (ci-introductionTests + ci-introductionUITests)"
+  lane :tests do
+    unit_tests
+    ui_tests
+  end
+
+  # ─────────────────────────────────────────
+  desc "Full CI pipeline — build, unit tests, and UI tests"
+  lane :ci do
+    build
+    unit_tests
+    ui_tests
+    UI.success("CI pipeline completed successfully.")
+  end
+
+  # ╔══════════════════════════════════════════════╗
+  # ║         CD LANES — PENDING API KEY            ║
+  # ╚══════════════════════════════════════════════╝
+
+  desc "Archive and upload to TestFlight (requires App Store Connect API Key)"
+  lane :release do
+    # ⏸  This lane is intentionally disabled until the API key is available.
+    #
+    # Required GitHub Secrets:
+    #   APP_STORE_CONNECT_API_KEY_ID       → Key ID from App Store Connect
+    #   APP_STORE_CONNECT_API_ISSUER_ID    → Issuer ID from App Store Connect
+    #   APP_STORE_CONNECT_API_KEY_CONTENT  → Base64-encoded .p8 private key
+    #   MATCH_PASSWORD                     → Passphrase for the match certificate repo
+    #   MATCH_GIT_BASIC_AUTHORIZATION      → Base64-encoded "user:token" for match repo access
+    #
+    # To encode your .p8 key for GitHub Secrets:
+    #   base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
+
+    UI.user_error!(
+      "CD lane is on hold — App Store Connect API Key is not yet configured. " \
+      "Uncomment and configure this lane once the key is available."
+    )
+
+    # ----------------------------------------------------------
+    # Step 1: Authenticate with App Store Connect API Key
+    # ----------------------------------------------------------
+    # api_key = app_store_connect_api_key(
+    #   key_id:                ENV["APP_STORE_CONNECT_API_KEY_ID"],
+    #   issuer_id:             ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
+    #   key_content:           ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
+    #   is_key_content_base64: true
+    # )
+
+    # ----------------------------------------------------------
+    # Step 2: Sync certificates and provisioning profiles (match)
+    # ----------------------------------------------------------
+    # match(
+    #   type:      "appstore",
+    #   api_key:   api_key,
+    #   readonly:  true
+    # )
+
+    # ----------------------------------------------------------
+    # Step 3: Bump build number
+    # ----------------------------------------------------------
+    # increment_build_number(xcodeproj: PROJECT)
+
+    # ----------------------------------------------------------
+    # Step 4: Archive the app
+    # ----------------------------------------------------------
+    # gym(
+    #   project:          PROJECT,
+    #   scheme:           SCHEME,
+    #   configuration:    CONFIGURATION_RELEASE,
+    #   export_method:    "app-store",
+    #   output_directory: BUILD_OUTPUT_DIR,
+    #   output_name:      "ci-introduction.ipa",
+    #   clean:            true
+    # )
+
+    # ----------------------------------------------------------
+    # Step 5: Upload to TestFlight
+    # ----------------------------------------------------------
+    # pilot(
+    #   api_key:                         api_key,
+    #   ipa:                             "#{BUILD_OUTPUT_DIR}/ci-introduction.ipa",
+    #   skip_waiting_for_build_processing: true,
+    #   changelog:                       "Automated release via GitHub Actions"
+    # )
+  end
+
+  # ╔══════════════════════════════════════════════╗
+  # ║               UTILITY LANES                   ║
+  # ╚══════════════════════════════════════════════╝
+
+  desc "Increment the build number in the Xcode project"
+  lane :bump_build do
+    increment_build_number(xcodeproj: PROJECT)
+    build_number = get_build_number(xcodeproj: PROJECT)
+    UI.success("Build number bumped to #{build_number}.")
+  end
+
+end
