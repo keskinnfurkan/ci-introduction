@@ -17,6 +17,8 @@ CONFIGURATION_RELEASE = "Release"
 BUILD_OUTPUT_DIR    = "./build"
 TEST_OUTPUT_DIR     = "./fastlane/test_output"
 
+SIMULATOR_DESTINATION = "platform=iOS Simulator,name=#{DEVICE},OS=latest"
+
 platform :ios do
 
   # ╔══════════════════════════════════════════════╗
@@ -45,7 +47,7 @@ platform :ios do
     xcodebuild(
       project:       PROJECT,
       scheme:        SCHEME,
-      destination:   "platform=iOS Simulator,name=#{DEVICE},OS=latest",
+      destination:   SIMULATOR_DESTINATION,
       configuration: CONFIGURATION_DEBUG,
       build:         true,
       xcargs:        "CODE_SIGNING_ALLOWED=NO"
@@ -60,16 +62,17 @@ platform :ios do
     resolve_dependencies
 
     scan(
-      project:           PROJECT,
-      scheme:            SCHEME,
-      device:            DEVICE,
-      configuration:     CONFIGURATION_DEBUG,
-      only_testing:      UNIT_TEST_TARGET,
-      code_coverage:     true,
-      result_bundle:     true,
-      output_directory:  TEST_OUTPUT_DIR,
-      output_files:      "unit_tests_report.html,unit_tests_report.junit",
-      xcargs:            "CODE_SIGNING_ALLOWED=NO"
+      project:          PROJECT,
+      scheme:           SCHEME,
+      destination:      SIMULATOR_DESTINATION,
+      configuration:    CONFIGURATION_DEBUG,
+      only_testing:     UI_TEST_TARGET,
+      code_coverage:    true,
+      result_bundle:    true,
+      output_directory: TEST_OUTPUT_DIR,
+      output_files:     "unit_tests_report.html,unit_tests_report.junit",
+      xcargs:           "CODE_SIGNING_ALLOWED=NO",
+      fail_build:       true
     )
 
     UI.success("Unit tests passed.")
@@ -81,16 +84,17 @@ platform :ios do
     resolve_dependencies
 
     scan(
-      project:           PROJECT,
-      scheme:            SCHEME,
-      device:            DEVICE,
-      configuration:     CONFIGURATION_DEBUG,
-      only_testing:      UI_TEST_TARGET,
-      code_coverage:     false,
-      result_bundle:     true,
-      output_directory:  TEST_OUTPUT_DIR,
-      output_files:      "ui_tests_report.html,ui_tests_report.junit",
-      xcargs:            "CODE_SIGNING_ALLOWED=NO"
+      project:          PROJECT,
+      scheme:           SCHEME,
+      destination:      SIMULATOR_DESTINATION,
+      configuration:    CONFIGURATION_DEBUG,
+      only_testing:     ["ci-introductionUITests"],
+      code_coverage:    false,
+      result_bundle:    true,
+      output_directory: TEST_OUTPUT_DIR,
+      output_files:     "ui_tests_report.html,ui_tests_report.junit",
+      xcargs:           "CODE_SIGNING_ALLOWED=NO",
+      fail_build:       true
     )
 
     UI.success("UI tests passed.")
